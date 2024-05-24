@@ -1,0 +1,10 @@
+package:
+  name: "cli"
+  dependencies:
+    - aff-promise
+    - js-promise
+    - optparse
+    - run
+    - strings
+    - stringutils
+    - tapl-purs

@@ -1,0 +1,28 @@
+{
+  "name": "tapl-purs",
+  "version": "1.0.0",
+  "description": "The PureScript implementation for the *Types and Programming Language* by B. Pierce",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "exec": "node ./bin/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/katsujukou/TaPL-in-PureScript.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/katsujukou/TaPL-in-PureScript/issues"
+  },
+  "homepage": "https://github.com/katsujukou/TaPL-in-PureScript#readme",
+  "bin": {
+    "tapl-purs": "bin/index.js"
+  },
+  "directories": {
+    "test": "test"
+  }
+}
