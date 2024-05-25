@@ -23,6 +23,11 @@ span = { start:_, end: _ }
 
 infix 5 span as ..
 
+range :: SourceRange -> SourceRange -> SourceRange 
+range { start } { end } = start..end
+
+infix 5 range as ~
+
 type SourcePhrase a =
   { it :: a 
   , at :: SourceRange

@@ -1,5 +1,4 @@
-module BoolNat.Syntax.WellFormedness where
-
+module TAPL.BoolNat.Syntax.WellFormedness where
 
 import Prelude
 
@@ -10,7 +9,7 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple.Nested (type (/\), (/\))
 import TAPL.BoolNat.Error (Error(..))
 import TAPL.BoolNat.Result (Result, throwError)
-import TAPL.BoolNat.Syntax.Types (Const(..), Expr(..), exprAnn)
+import TAPL.BoolNat.Syntax.Types (Const(..), Expr(..))
 import TAPL.BoolNat.Types (Term(..))
 
 -- This module defines well-formedness checking functionality
