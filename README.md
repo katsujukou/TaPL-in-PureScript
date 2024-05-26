@@ -6,7 +6,7 @@ The PureScript implementation for the *Types and Programming Language* by B. Pie
   - *Chapter 9: Simply Typed Lambda Calculus* (`TAPL.STLC.*`)
 
 ## Not Yet
-  - *Chapter 11: Simple Extension* (`TAPL.ExSTLC`).
+  - *Chapter 11: Simple Extension* (`TAPL.STLCEx`).
      - [x] `unit` type 
      - [x] `let...in` expression
      - [x] Tuples 
