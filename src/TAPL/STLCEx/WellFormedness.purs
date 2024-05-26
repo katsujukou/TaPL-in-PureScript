@@ -12,6 +12,7 @@ import Data.Array.NonEmpty as NonEmptyArray
 import Data.Either (Either)
 import Data.List (List(..))
 import Data.Maybe (Maybe(..))
+import Data.String.CodeUnits as SCU
 import Data.Traversable (traverse)
 import Data.Tuple.Nested (type (/\), (/\))
 import Effect.Console (logShow)
@@ -22,7 +23,8 @@ import TAPL.STLCEx.Env as Env
 import TAPL.STLCEx.Error (Error(..))
 import TAPL.STLCEx.Syntax.Types (Accessor(..), Const(..), Expr(..), Pattern(..))
 import TAPL.STLCEx.Syntax.Types as Syntax
-import TAPL.STLCEx.Types (Ann, Ident, Term(..), Type_(..), termAnn, typeAnn)
+import TAPL.STLCEx.Syntax.Utils (isUppercase)
+import TAPL.STLCEx.Types (Ann, Ident, Prop(..), Term(..), Type_(..), termAnn, typeAnn)
 
 -- This module defines well-formedness checking functionality
 -- After passing well-formedness checking, parsed terms (concrete syntax of source)
@@ -99,6 +101,7 @@ check = case _ of
   ExprAbs a args body -> checkExprAbs a (NonEmptyArray.toArray args) body
   ExprLet a binder e1 e2 -> checkExprLet a binder e1 e2 
   ExprTuple a elems -> checkExprTuple a elems
+  ExprRecord a lblExprs -> checkExprRecord a lblExprs
   ExprAccess _ exp path -> do
     tm <- check exp 
     checkExprAccess tm (NonEmptyArray.toArray path)
@@ -137,6 +140,18 @@ check = case _ of
     tmElems <- traverse check elems
     pure $ TmTuple a tmElems
 
+  checkExprRecord a lblExprs = do 
+    tmFlds <- traverse checkLabeledExpr lblExprs
+    pure $ TmRecord a tmFlds
+
+  checkLabeledExpr (Syntax.Labeled label exp) = do
+    let Syntax.Label lbl = label
+    case SCU.uncons lbl of
+      Nothing -> throwError $ RecordLabelIllFormed ""
+      Just { head: ch } 
+        | isUppercase ch -> throwError $ RecordLabelIllFormed "Record field name cannot begin with uppercase character."
+        | otherwise -> Prop lbl <$> check exp
+
   checkExprAccess tm = Array.uncons >>> case _ of 
     Nothing -> pure tm
     Just { head:acs, tail:rest } -> 
@@ -145,6 +160,11 @@ check = case _ of
           let 
             tm' = TmField {pos: (termAnn tm).pos ~ a.pos} tm n
           checkExprAccess tm' rest
+        AcsProperty a label -> do 
+          let 
+            Syntax.Label lbl = label
+            tm' = TmProperty {pos: (termAnn tm).pos ~ a.pos} tm lbl
+          checkExprAccess tm' rest 
     
   checkType = case _ of 
     Syntax.TFree a ident -> case ident of 
@@ -154,6 +174,10 @@ check = case _ of
       _ -> throwError $ ExprIllFormed "Atomic types other than nat, bool, unit are not supported."
     Syntax.TFun a argTypes retType -> checkFuncType a (NonEmptyArray.toArray argTypes) retType
     Syntax.TTup a typs -> TTuple a <$> traverse checkType typs
+    Syntax.TRecord a lblTyps -> TRecord a <$> 
+        traverse 
+          (\(Syntax.Labeled (Syntax.Label lbl) it) -> Prop lbl <$> checkType it) 
+          lblTyps 
     Syntax.TParens _ t -> checkType t
     
   checkFuncType a argTypes retType = case Array.uncons argTypes of 

@@ -31,6 +31,7 @@ data Token
   | TokIdent Ident
   | TokOperator String
   | TokIndex Int 
+  | TokProperty String
   | TokBool Boolean
   | TokNat Int
   | TokEOF
@@ -62,6 +63,7 @@ printToken = case _ of
   TokIdent ident -> ident
   TokOperator op -> op
   TokIndex idx -> "#" <> show idx
+  TokProperty prop -> "#" <> prop
   TokBool b -> show b
   TokNat n -> show n 
   TokEOF -> ""
@@ -108,10 +110,26 @@ derive instance Generic Const _
 instance Show Const where
   show = genericShow
 
+newtype Label = Label String
+
+derive instance Eq Label 
+derive instance Ord Label 
+instance Show Label where 
+  show (Label it) = "(Label " <> it <> ")"
+  
+data Labeled a = Labeled Label a
+
+derive instance Functor Labeled 
+derive instance Eq a => Eq (Labeled a)
+derive instance Generic (Labeled a) _ 
+instance Show a => Show (Labeled a) where
+  show it = genericShow it 
+
 data Type_ a
   = TFree a Ident
   | TFun a (NonEmptyArray (Type_ a)) (Type_ a)
   | TTup a (Array (Type_ a))
+  | TRecord a (Array (Labeled (Type_ a)))
   | TParens a (Type_ a)
   
 derive instance Functor Type_ 
@@ -125,6 +143,7 @@ typeAnn = case _ of
   TFree a _ -> a 
   TFun a _ _ -> a 
   TTup a _ -> a
+  TRecord a _ -> a
   TParens a _ -> a
 
 data Expr a
@@ -137,6 +156,7 @@ data Expr a
   | ExprLet a (Binder a) (Expr a) (Expr a)
   | ExprLetRec a (NonEmptyArray { binder :: Binder a, expr :: Expr a }) (Expr a)
   | ExprTuple a (Array (Expr a))
+  | ExprRecord a (Array (Labeled (Expr a)))
   | ExprAccess a (Expr a) (NonEmptyArray (Accessor a))
 
 derive instance Functor Expr 
@@ -147,6 +167,7 @@ instance Show a => Show (Expr a) where
 
 data Accessor a 
   = AcsIndex a Int
+  | AcsProperty a Label
 
 derive instance Functor Accessor
 derive instance Eq a => Eq (Accessor a)
@@ -200,6 +221,7 @@ exprAnn = case _ of
   ExprLetRec a _ _ -> a
   ExprTuple a _ -> a
   ExprAccess a _ _ -> a
+  ExprRecord a _ -> a 
 
 patternAnn :: forall a. Pattern a -> a 
 patternAnn = case _ of 
@@ -214,3 +236,4 @@ patternVar = case _ of
 accessorAnn :: forall a. Accessor a -> a 
 accessorAnn = case _ of 
   AcsIndex a _ -> a 
+  AcsProperty a _ -> a

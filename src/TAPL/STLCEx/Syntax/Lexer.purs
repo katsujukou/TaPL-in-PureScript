@@ -16,7 +16,7 @@ import Data.Tuple.Nested (type (/\), (/\))
 import Partial.Unsafe (unsafeCrashWith)
 import TAPL.STLCEx.Syntax.Error (ParseError(..))
 import TAPL.STLCEx.Syntax.Position (SourcePos, SourcePhrase, advancePos, charDelta, mapPhrase, stringDelta, (..), (@@), (~))
-import TAPL.STLCEx.Syntax.Types (Keyword(..), SourceToken, Token(..))
+import TAPL.STLCEx.Syntax.Types (Keyword(..), Token(..), SourceToken)
 
 type LexerState = { src :: String, pos :: SourcePos }
 
@@ -126,6 +126,9 @@ operator = do
     "#" -> (do
       n <- digits
       pure (TokIndex n.it @@ (matched.at ~ n.at))
+    ) <|> (do
+      prop <- identChars
+      pure (TokProperty prop.it @@ (matched.at ~ prop.at))
     ) <|> (pure $ matched {it = TokOperator "#"})
     op -> pure $ matched {it = TokOperator op}
 
@@ -142,9 +145,12 @@ digits = do
 nat :: Lexer SourceToken
 nat = digits <#> mapPhrase TokNat
   
-ident :: Lexer SourceToken 
-ident = do
-  matched <- regex """[a-zA-Z0-9_][a-zA-Z0-9'_]*"""
+identChars :: Lexer (SourcePhrase String)
+identChars = regex """[a-zA-Z0-9_][a-zA-Z0-9'_]*"""
+
+ident :: Lexer SourceToken
+ident = do 
+  matched <- identChars
   case parseKeyword matched.it of 
     Just kw -> pure $ matched {it = TokReserved kw}
     _ -> case matched.it of 

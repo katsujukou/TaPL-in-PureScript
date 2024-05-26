@@ -12,6 +12,7 @@ data Value
   | VAbs 
   | VUnit
   | VTuple (Array Value)
+  | VRecord (Array { prop :: String, value :: Value })
 
 -- derive instance Generic Value _ 
 instance Show Value where
@@ -23,6 +24,7 @@ instance Show Value where
     VAbs -> "(VAbs <fun>)"
     VUnit -> "()"
     VTuple vs -> "(VTuple " <> (Str.joinWith ", " $ map show vs) <> ")"
+    VRecord flds -> "(VRecord " <> show flds <> ")"
 
 isNumeric :: Value -> Boolean
 isNumeric = case _ of 

@@ -5,6 +5,7 @@ import Prelude
 import Control.Monad.Except (Except, runExcept, throwError)
 import Control.Monad.Reader (ReaderT, ask, local, runReaderT)
 import Data.Array ((!!))
+import Data.Array as Array
 import Data.Either (Either)
 import Data.List (List(..))
 import Data.Maybe (Maybe(..))
@@ -13,7 +14,7 @@ import Effect.Class.Console (logShow)
 import Effect.Unsafe (unsafePerformEffect)
 import TAPL.STLCEx.Env as Env
 import TAPL.STLCEx.Error (Error(..))
-import TAPL.STLCEx.Types (Ann, Term(..), Type_(..), Var, termAnn)
+import TAPL.STLCEx.Types (Ann, Prop(..), Term(..), Type_(..), Var, propKey, termAnn)
 
 type TCheck a = ReaderT Env.TypeEnv (Except Error) a
 
@@ -67,12 +68,21 @@ infer = case _ of
   TmTuple _ tms -> do
     typs <- traverse infer tms
     pure $ TTuple unit typs
+  TmRecord _ flds -> do
+    typs <- traverse (traverse infer) flds
+    pure $ TRecord unit typs
   TmField a tm n -> do 
     typ <- infer tm
     case typ of 
       TTuple _ typs
         |  Just typ' <- typs !! n -> pure typ'
       _ -> throwError $ IllegalFieldAccess { idx: n, typ, pos: a.pos }
+  TmProperty a tm prop -> do 
+    typ <- infer tm
+    case typ of 
+      TRecord _ typs 
+        | Just (Prop _ typ') <- Array.find ((_ == prop) <<< propKey) typs -> pure typ'
+      _ -> throwError $ IllegalPropertyAccess { prop, typ, pos: a.pos }
 -- fun (x:nat) (y:bool) -> let f = fun (x:nat) -> pred x in if y then x else f x
 
 check :: Term Ann -> Type_ Unit -> TCheck Unit

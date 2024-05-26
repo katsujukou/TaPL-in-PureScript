@@ -1,9 +1,9 @@
 module TAPL.STLCEx.Error where
+
 import Prelude
 
 import Data.Generic.Rep (class Generic)
 import Data.Show.Generic (genericShow)
--- import TAPL.BoolNat.PrettyPrint (printType)
 import TAPL.STLCEx.Syntax.Error as PE
 import TAPL.STLCEx.Syntax.Position (SourceRange)
 import TAPL.STLCEx.Types (Ident, Type_)
@@ -11,10 +11,12 @@ import TAPL.STLCEx.Types (Ident, Type_)
 data Error 
   = ParseError PE.ParseError
   | ExprIllFormed String
+  | RecordLabelIllFormed String
   | TypeMismatch { pos :: SourceRange, expect :: Type_ Unit, found :: Type_ Unit}
   | UnknownIdentifier Ident
   | BinderNotAnnotated { pos :: SourceRange } 
   | IllegalFieldAccess { pos :: SourceRange, typ :: Type_ Unit, idx :: Int }
+  | IllegalPropertyAccess { pos :: SourceRange, typ :: Type_ Unit, prop :: String }
   | IllegalApplication
   | EvalStuck
 

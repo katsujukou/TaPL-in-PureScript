@@ -16,7 +16,7 @@ import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 import TAPL.STLCEx.Syntax.Error (ParseError(..))
 import TAPL.STLCEx.Syntax.Lexer (LexerState, runLexer, tokenize)
 import TAPL.STLCEx.Syntax.Position (SourcePhrase, mapPhrase, (..), (@@), (~))
-import TAPL.STLCEx.Syntax.Types (Accessor(..), Ann, Binder(..), Const(..), Expr(..), Keyword(..), Pattern(..), SourceToken, Token(..), Type_(..), accessorAnn, exprAnn, patternAnn, typeAnn)
+import TAPL.STLCEx.Syntax.Types (Accessor(..), Ann, Binder(..), Const(..), Expr(..), Keyword(..), Label(..), Labeled(..), Pattern(..), SourceToken, Token(..), Type_(..), accessorAnn, exprAnn, patternAnn, typeAnn)
 import TAPL.STLCEx.Types (Ident)
 
 type ParserState = 
@@ -155,6 +155,7 @@ colon = token TokColon
 index :: Parser SourceToken 
 index = tokenSuchThat case _ of 
   TokIndex _ -> true 
+  TokProperty _ -> true 
   _ -> false
 
 underscore :: Parser SourceToken 
@@ -165,6 +166,9 @@ star = token TokStar
 
 rightArrow :: Parser SourceToken 
 rightArrow = token TokRightArrow
+
+semicolon :: Parser SourceToken 
+semicolon = token TokSemicolon
 
 fun :: Parser SourceToken 
 fun = token (TokReserved KW_fun)
@@ -320,22 +324,37 @@ parseAccessor = defer \_ -> do
   tok1 <- index
   case tok1.it of 
     TokIndex n -> pure $ AcsIndex {pos:tok1.at} n
+    TokProperty prop -> pure $ AcsProperty {pos:tok1.at} (Label prop)
     t -> failwith (UnexpectedToken t) 
 
 parseExprAtom :: Parser (Expr Ann)
 parseExprAtom = defer \_ -> do
   parseConst
   <|> parseExprIdent
+  <|> parseExprRecord
   <|> parseExprTuple
   <|> parseParensExpr
 
 parseExprTuple :: Parser (Expr Ann)
-parseExprTuple = defer \_ -> do
+parseExprTuple = defer \_ -> try do
   {at:pos1} <- leftBrace
   exprs <- delimBy comma parseExpr 
   {at:pos2} <- rightBrace
   pure $ ExprTuple {pos:pos1 ~ pos2} exprs 
+
+parseExprRecord :: Parser (Expr Ann)
+parseExprRecord = defer \_ -> try do
+  {at:pos1} <- leftBrace
+  expFlds <- delimBy comma parseExprRecordField
+  {at:pos2} <- rightBrace
+  pure $ ExprRecord {pos:pos1 ~ pos2} expFlds 
   
+parseExprRecordField :: Parser (Labeled (Expr Ann)) 
+parseExprRecordField = defer \_ -> do 
+  ((lbl /\ _) /\ exp) <- ident
+    `followedBy` equal
+    `followedBy` parseExpr
+  pure $ Labeled (Label lbl.it)  exp
 parseParensExpr :: Parser (Expr Ann)
 parseParensExpr = defer \_ -> do 
   {at:pos1} <- leftParens
@@ -407,6 +426,7 @@ parseType1 = defer \_ -> do
 parseTypeAtom :: Parser (Type_ Ann)
 parseTypeAtom = defer \_ -> do
   parseTypeFree
+  <|> parseTypeRecord
   <|> parseParensType 
 
 parseTypeFree :: Parser (Type_ Ann)
@@ -414,6 +434,23 @@ parseTypeFree = defer \_ -> do
   name <- ident
   pure $ TFree {pos: name.at} name.it
 
+
+parseTypeRecord :: Parser (Type_ Ann)
+parseTypeRecord = defer \_ -> do 
+  {at:pos1} <- leftBrace
+  typs <- delimBy comma parseRecordTypeField
+  {at:pos2} <- rightBrace
+  pure $ TRecord {pos:pos1 ~ pos2} (map _.it typs)
+
+parseRecordTypeField :: Parser (SourcePhrase (Labeled (Type_ Ann)))
+parseRecordTypeField = defer \_ -> do
+  ((lbl /\ _) /\ typ) <- ident
+    `followedBy` colon
+    `followedBy` parseType 
+  pure $ 
+    { it: Labeled (Label lbl.it) typ
+    , at: lbl.at ~ (typeAnn typ).pos 
+    }
 
 parseParensType :: Parser (Type_ Ann)
 parseParensType = defer \_ -> do

@@ -13,7 +13,7 @@ import Data.Traversable (traverse)
 import Partial.Unsafe (unsafeCrashWith)
 import TAPL.STLCEx.Error (Error(..))
 import TAPL.STLCEx.Eval.Value (Value(..), isNumeric)
-import TAPL.STLCEx.Types (Ann, Term(..), Var)
+import TAPL.STLCEx.Types (Ann, Prop(..), Term(..), Var, propKey, propValue)
 
 type Eval a = Either Error a
 
@@ -26,6 +26,7 @@ isValue = case _ of
   TmAbs _ _ _ -> true
   TmUnit _ -> true
   TmTuple _ tms -> all isValue tms
+  TmRecord _ flds -> all (propValue >>> isValue) flds
   _ -> false
    
 eval :: Term Ann -> Eval Value
@@ -75,6 +76,16 @@ evalSmallStep = case _ of
           _ -> unsafeCrashWith "Impossible"
     | otherwise -> do
       pure tmTpl
+  tmRcd@(TmRecord a tmFlds) 
+    | Just { index, value: tmFld } <- findWithIndex 
+      (\_ tm -> not $ isValue $ propValue tm) 
+      tmFlds -> do 
+        tmFld' <- traverse evalSmallStep tmFld
+        case Array.modifyAt index (const tmFld') tmFlds of
+          Just tmFlds' -> pure $ TmRecord a tmFlds' 
+          _ -> unsafeCrashWith "Impossible"
+    | otherwise -> do
+      pure tmRcd
   TmField a tm n
     | not (isValue tm) -> do 
         tm' <- evalSmallStep tm
@@ -82,6 +93,14 @@ evalSmallStep = case _ of
     | otherwise -> case tm of
         TmTuple _ ts
           | Just t <- ts !! n -> pure t 
+        _ -> throwError $ EvalStuck
+  TmProperty a tm prop 
+    | not (isValue tm) -> do 
+        tm' <- evalSmallStep tm 
+        pure $ TmProperty a tm' prop 
+    | otherwise -> case tm of 
+        TmRecord _ flds 
+          | Just (Prop _ t) <- Array.find ((_ == prop) <<< propKey) flds -> pure t
         _ -> throwError $ EvalStuck
   tm
     | isValue tm -> pure tm
@@ -99,7 +118,10 @@ subst i t0 = case _ of
   TmAbs a typ t -> TmAbs a typ (subst (i + 1) (shift0 1 t0) t)
   TmLetIn a t1 t2 -> TmLetIn a (subst i t0 t1) (subst (i + 1) (shift0 1 t0) t2)
   TmTuple a ts -> TmTuple a (map (subst i t0) ts)
+  TmRecord a flds -> TmRecord a (map (subst i t0) <$> flds)
   TmField a t n -> TmField a (subst i t0 t) n
+  TmProperty a t p -> TmProperty a (subst i t0 t) p
+
   t2 -> t2 
 
 shift0 :: forall a. Int -> Term a -> Term a 
@@ -116,7 +138,9 @@ shift d c = case _ of
   TmPred a t -> TmPred a (shift d c t)
   TmIsZero a t -> TmIsZero a (shift d c t)
   TmTuple a ts -> TmTuple a (shift d c <$> ts)
+  TmRecord a flds -> TmRecord a (map (shift d c) <$> flds )
   TmField a t n -> TmField a (shift d c t) n
+  TmProperty a t p -> TmProperty a (shift d c t) p
   t -> t
 
 extractValue :: forall a. Term a -> Maybe Value 
@@ -128,4 +152,5 @@ extractValue = case _ of
   TmAbs _ _ _ -> Just $ VAbs
   TmUnit _ -> Just VUnit 
   TmTuple _ tms -> VTuple <$> traverse extractValue tms
+  TmRecord _ flds -> VRecord <$> traverse (\(Prop prop v) -> ({ prop, value: _ } <$> extractValue v)) flds
   _ -> Nothing
