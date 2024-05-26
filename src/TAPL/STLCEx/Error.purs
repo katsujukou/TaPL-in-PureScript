@@ -14,6 +14,7 @@ data Error
   | TypeMismatch { pos :: SourceRange, expect :: Type_ Unit, found :: Type_ Unit}
   | UnknownIdentifier Ident
   | BinderNotAnnotated { pos :: SourceRange } 
+  | IllegalFieldAccess { pos :: SourceRange, typ :: Type_ Unit, idx :: Int }
   | IllegalApplication
   | EvalStuck
 

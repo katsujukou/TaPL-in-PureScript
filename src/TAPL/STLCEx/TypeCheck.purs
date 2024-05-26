@@ -4,9 +4,11 @@ import Prelude
 
 import Control.Monad.Except (Except, runExcept, throwError)
 import Control.Monad.Reader (ReaderT, ask, local, runReaderT)
+import Data.Array ((!!))
 import Data.Either (Either)
 import Data.List (List(..))
 import Data.Maybe (Maybe(..))
+import Data.Traversable (traverse)
 import Effect.Class.Console (logShow)
 import Effect.Unsafe (unsafePerformEffect)
 import TAPL.STLCEx.Env as Env
@@ -62,6 +64,15 @@ infer = case _ of
   TmLetIn _ tm1 tm2 -> do
     typ1 <- infer tm1
     withExtendEnv typ1 (infer tm2) 
+  TmTuple _ tms -> do
+    typs <- traverse infer tms
+    pure $ TTuple unit typs
+  TmField a tm n -> do 
+    typ <- infer tm
+    case typ of 
+      TTuple _ typs
+        |  Just typ' <- typs !! n -> pure typ'
+      _ -> throwError $ IllegalFieldAccess { idx: n, typ, pos: a.pos }
 -- fun (x:nat) (y:bool) -> let f = fun (x:nat) -> pred x in if y then x else f x
 
 check :: Term Ann -> Type_ Unit -> TCheck Unit

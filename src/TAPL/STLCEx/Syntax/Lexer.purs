@@ -15,7 +15,7 @@ import Data.String.Regex.Unsafe (unsafeRegex)
 import Data.Tuple.Nested (type (/\), (/\))
 import Partial.Unsafe (unsafeCrashWith)
 import TAPL.STLCEx.Syntax.Error (ParseError(..))
-import TAPL.STLCEx.Syntax.Position (SourcePhrase, SourcePos, advancePos, charDelta, mapPhrase, stringDelta, (..), (@@), (~))
+import TAPL.STLCEx.Syntax.Position (SourcePos, SourcePhrase, advancePos, charDelta, mapPhrase, stringDelta, (..), (@@), (~))
 import TAPL.STLCEx.Syntax.Types (Keyword(..), SourceToken, Token(..))
 
 type LexerState = { src :: String, pos :: SourcePos }
@@ -121,17 +121,26 @@ operator = do
     "=" -> pure $ matched {it = TokEqual } 
     ":" -> pure $ matched {it = TokColon }
     "." -> pure $ matched {it = TokDot }
+    "*" -> pure $ matched {it = TokStar}
     "->" -> pure $ matched {it = TokRightArrow}
+    "#" -> (do
+      n <- digits
+      pure (TokIndex n.it @@ (matched.at ~ n.at))
+    ) <|> (pure $ matched {it = TokOperator "#"})
     op -> pure $ matched {it = TokOperator op}
 
   where
     operatorRegex = """[!#$%&=\-\^~|\\@+*:?/<>]+"""
-nat :: Lexer SourceToken
-nat = do
+
+digits :: Lexer (SourcePhrase Int) 
+digits = do
   matched <- regex """[0-9]+"""
   case Int.fromString matched.it of 
     Nothing -> unsafeCrashWith "Impossible"
-    Just n -> pure $ matched {it = TokNat n}
+    Just n -> pure $ matched {it = n} 
+
+nat :: Lexer SourceToken
+nat = digits <#> mapPhrase TokNat
   
 ident :: Lexer SourceToken 
 ident = do

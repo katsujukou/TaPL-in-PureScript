@@ -23,12 +23,14 @@ data Token
   | TokSemicolon 
   | TokDot
   | TokComma
+  | TokStar
   | TokRightArrow
   | TokUnit
   | TokUnderscore
   | TokReserved Keyword
   | TokIdent Ident
   | TokOperator String
+  | TokIndex Int 
   | TokBool Boolean
   | TokNat Int
   | TokEOF
@@ -52,12 +54,14 @@ printToken = case _ of
   TokSemicolon -> ";"
   TokDot -> "."
   TokComma -> ","
+  TokStar -> "*"
   TokRightArrow -> "->"
   TokUnit -> "()"
   TokUnderscore -> "_"
   TokReserved kw -> printKeyword kw
   TokIdent ident -> ident
   TokOperator op -> op
+  TokIndex idx -> "#" <> show idx
   TokBool b -> show b
   TokNat n -> show n 
   TokEOF -> ""
@@ -73,7 +77,7 @@ printToken = case _ of
       KW_if -> "if"
       KW_else -> "else"
       KW_then -> "then"  
-    
+
 data Keyword
   = KW_fun 
   | KW_let 
@@ -107,6 +111,7 @@ instance Show Const where
 data Type_ a
   = TFree a Ident
   | TFun a (NonEmptyArray (Type_ a)) (Type_ a)
+  | TTup a (Array (Type_ a))
   | TParens a (Type_ a)
   
 derive instance Functor Type_ 
@@ -119,6 +124,7 @@ typeAnn :: forall a. Type_ a -> a
 typeAnn = case _ of 
   TFree a _ -> a 
   TFun a _ _ -> a 
+  TTup a _ -> a
   TParens a _ -> a
 
 data Expr a
@@ -130,12 +136,23 @@ data Expr a
   | ExprApp a (Expr a) (NonEmptyArray (Expr a))
   | ExprLet a (Binder a) (Expr a) (Expr a)
   | ExprLetRec a (NonEmptyArray { binder :: Binder a, expr :: Expr a }) (Expr a)
+  | ExprTuple a (Array (Expr a))
+  | ExprAccess a (Expr a) (NonEmptyArray (Accessor a))
 
 derive instance Functor Expr 
 derive instance Eq a => Eq (Expr a) 
 derive instance Generic (Expr a) _ 
 instance Show a => Show (Expr a) where
   show it = genericShow it
+
+data Accessor a 
+  = AcsIndex a Int
+
+derive instance Functor Accessor
+derive instance Eq a => Eq (Accessor a)
+derive instance Generic (Accessor a) _ 
+instance Show a => Show(Accessor a) where
+  show it = genericShow it 
 
 data Binder a = Binder a (Pattern a) (Maybe (Type_ a))
 
@@ -181,6 +198,8 @@ exprAnn = case _ of
   ExprApp a _ _ -> a
   ExprLet a _ _ _ -> a 
   ExprLetRec a _ _ -> a
+  ExprTuple a _ -> a
+  ExprAccess a _ _ -> a
 
 patternAnn :: forall a. Pattern a -> a 
 patternAnn = case _ of 
@@ -191,3 +210,7 @@ patternVar :: forall a. Pattern a -> Maybe Ident
 patternVar = case _ of 
   PatVar _ var -> Just var
   _ -> Nothing
+
+accessorAnn :: forall a. Accessor a -> a 
+accessorAnn = case _ of 
+  AcsIndex a _ -> a 

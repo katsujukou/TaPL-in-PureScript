@@ -31,6 +31,7 @@ data Type_ a
   | TBool a 
   | TFun a (Type_ a) (Type_ a)
   | TUnit a
+  | TTuple a (Array (Type_ a))
 
 derive instance Functor Type_ 
 derive instance Eq a => Eq (Type_ a)
@@ -63,6 +64,8 @@ data Term a
   | TmAbs a (Type_ a) (Term a)
   | TmLetIn a (Term a) (Term a)
   | TmUnit a
+  | TmTuple a (Array (Term a))
+  | TmField a (Term a) Int
 
 derive instance Functor Term 
 derive instance Generic (Term a) _
@@ -88,10 +91,13 @@ termAnn = case _ of
   TmAbs a _ _ -> a
   TmUnit a -> a
   TmLetIn a _ _ -> a
-
+  TmTuple a _ -> a 
+  TmField a _ _ -> a 
+  
 typeAnn :: forall a. Type_ a -> a 
 typeAnn = case _ of 
   TBool a -> a
   TNat a -> a 
   TFun a _ _ -> a
   TUnit a -> a 
+  TTuple a _ -> a

@@ -4,8 +4,13 @@ import Prelude
 
 import Control.Monad.Except (throwError)
 import Control.Monad.Rec.Class (Step(..), tailRecM)
+import Data.Array (all, (!!))
+import Data.Array as Array
 import Data.Either (Either)
+import Data.FoldableWithIndex (findWithIndex)
 import Data.Maybe (Maybe(..))
+import Data.Traversable (traverse)
+import Partial.Unsafe (unsafeCrashWith)
 import TAPL.STLCEx.Error (Error(..))
 import TAPL.STLCEx.Eval.Value (Value(..), isNumeric)
 import TAPL.STLCEx.Types (Ann, Term(..), Var)
@@ -20,6 +25,7 @@ isValue = case _ of
   TmSucc _ tm -> isValue tm
   TmAbs _ _ _ -> true
   TmUnit _ -> true
+  TmTuple _ tms -> all isValue tms
   _ -> false
    
 eval :: Term Ann -> Eval Value
@@ -61,6 +67,22 @@ evalSmallStep = case _ of
   TmLetIn a t1 t2 
     | isValue t1 -> pure $ shift0 (-1) $ (subst 0 (shift0 1 t1) t2)
     | otherwise -> TmLetIn a <$> evalSmallStep t1 <*> pure t2
+  tmTpl@(TmTuple a ts)
+    | Just v <- findWithIndex (\_ t -> not (isValue t)) ts -> do 
+        tm' <- evalSmallStep v.value
+        case Array.modifyAt v.index (const tm') ts of
+          Just ts' -> pure $ TmTuple a ts' 
+          _ -> unsafeCrashWith "Impossible"
+    | otherwise -> do
+      pure tmTpl
+  TmField a tm n
+    | not (isValue tm) -> do 
+        tm' <- evalSmallStep tm
+        pure $ TmField a tm' n 
+    | otherwise -> case tm of
+        TmTuple _ ts
+          | Just t <- ts !! n -> pure t 
+        _ -> throwError $ EvalStuck
   tm
     | isValue tm -> pure tm
     | otherwise -> throwError $ EvalStuck
@@ -76,6 +98,8 @@ subst i t0 = case _ of
   TmPred a t -> TmPred a $ subst i t0 t
   TmAbs a typ t -> TmAbs a typ (subst (i + 1) (shift0 1 t0) t)
   TmLetIn a t1 t2 -> TmLetIn a (subst i t0 t1) (subst (i + 1) (shift0 1 t0) t2)
+  TmTuple a ts -> TmTuple a (map (subst i t0) ts)
+  TmField a t n -> TmField a (subst i t0 t) n
   t2 -> t2 
 
 shift0 :: forall a. Int -> Term a -> Term a 
@@ -91,6 +115,8 @@ shift d c = case _ of
   TmIf a t1 t2 t3 -> TmIf a (shift d c t1) (shift d c t2) (shift d c t3)
   TmPred a t -> TmPred a (shift d c t)
   TmIsZero a t -> TmIsZero a (shift d c t)
+  TmTuple a ts -> TmTuple a (shift d c <$> ts)
+  TmField a t n -> TmField a (shift d c t) n
   t -> t
 
 extractValue :: forall a. Term a -> Maybe Value 
@@ -101,4 +127,5 @@ extractValue = case _ of
   TmSucc _ t -> VSucc <$> extractValue t
   TmAbs _ _ _ -> Just $ VAbs
   TmUnit _ -> Just VUnit 
+  TmTuple _ tms -> VTuple <$> traverse extractValue tms
   _ -> Nothing

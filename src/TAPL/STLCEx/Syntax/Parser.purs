@@ -4,17 +4,19 @@ import Prelude
 
 import Control.Alt (class Alt, (<|>))
 import Control.Lazy (class Lazy, defer)
+import Data.Array as Array
 import Data.Array.NonEmpty as NonEmptyArray
+import Data.Array.Partial as ArrayP
 import Data.Bifunctor (lmap)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Data.Tuple (fst)
+import Data.Tuple (fst, snd)
 import Data.Tuple.Nested (type (/\), (/\))
-import Partial.Unsafe (unsafeCrashWith)
+import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 import TAPL.STLCEx.Syntax.Error (ParseError(..))
 import TAPL.STLCEx.Syntax.Lexer (LexerState, runLexer, tokenize)
 import TAPL.STLCEx.Syntax.Position (SourcePhrase, mapPhrase, (..), (@@), (~))
-import TAPL.STLCEx.Syntax.Types (Ann, Binder(..), Const(..), Expr(..), Keyword(..), Pattern(..), SourceToken, Token(..), Type_(..), exprAnn, patternAnn, typeAnn)
+import TAPL.STLCEx.Syntax.Types (Accessor(..), Ann, Binder(..), Const(..), Expr(..), Keyword(..), Pattern(..), SourceToken, Token(..), Type_(..), accessorAnn, exprAnn, patternAnn, typeAnn)
 import TAPL.STLCEx.Types (Ident)
 
 type ParserState = 
@@ -79,6 +81,9 @@ initialState src =
   { lexerState: { src, pos: { ln: 1, col: 1 } }
   }
 
+failwith :: forall a. ParseError -> Parser a 
+failwith err = Parser \s -> Left err /\ s 
+
 optional :: forall a. Parser a -> Parser (Maybe a)
 optional (Parser p) = Parser \s -> case p s of
   Right a /\ s1 -> Right (Just a) /\ s1 
@@ -94,6 +99,23 @@ many (Parser p) = Parser \s -> go [] s
       Left e /\ s1 
         | Right s1' <- recover s1 e -> Right acc /\ s1'
         | otherwise -> Left e /\ s1
+
+try :: forall a. Parser a -> Parser a
+try (Parser p) = Parser \s -> case p s of 
+  Right a /\ s1 -> Right a /\ s1 
+  Left e /\ _ -> Left e /\ s
+  
+followedBy :: forall a b. Parser a -> Parser b -> Parser (a /\ b)
+followedBy p1 p2 = try ((/\) <$> p1 <*> p2) 
+
+delimBy :: forall a. Parser SourceToken -> Parser a -> Parser (Array a)
+delimBy dlm p = do
+  a <- optional p
+  case a of
+    Nothing -> pure []
+    Just a0 -> do 
+      as <- many (dlm `followedBy` p)
+      pure $ Array.cons a0 (map snd as) 
 
 tokenSuchThat :: (Token -> Boolean) -> Parser SourceToken 
 tokenSuchThat f = Parser \s -> case runLexer tokenize s.lexerState of
@@ -112,6 +134,12 @@ leftParens = token TokLeftParens
 rightParens :: Parser SourceToken 
 rightParens = token TokRightParens
 
+leftBrace :: Parser SourceToken
+leftBrace = token TokLeftBrace
+
+rightBrace :: Parser SourceToken 
+rightBrace = token TokRightBrace
+
 equal :: Parser SourceToken 
 equal = token TokEqual
 
@@ -124,11 +152,16 @@ comma = token TokComma
 colon :: Parser SourceToken
 colon = token TokColon 
 
+index :: Parser SourceToken 
+index = tokenSuchThat case _ of 
+  TokIndex _ -> true 
+  _ -> false
+
 underscore :: Parser SourceToken 
 underscore = token TokUnderscore
 
--- star :: Parser SourceToken 
--- star = token TokStar
+star :: Parser SourceToken 
+star = token TokStar
 
 rightArrow :: Parser SourceToken 
 rightArrow = token TokRightArrow
@@ -238,7 +271,7 @@ parseExpr2 :: Parser (Expr Ann)
 parseExpr2 = defer \_ -> do 
   parseExprIf
     <|> parseExprLet
-    <|> parseExprAtom
+    <|> parseExpr3
 
 parseExprLet :: Parser (Expr Ann)
 parseExprLet = defer \_ -> do
@@ -265,12 +298,44 @@ parseExprIf = defer \_ -> do
   let pos2 = (exprAnn t3).pos
   pure $ ExprIf {pos: pos1.start .. pos2.end} t1 t2 t3  
 
+parseExpr3 :: Parser (Expr Ann)
+parseExpr3 = defer \_ -> do
+  expr <- parseExprAtom
+  (parseExprAccess expr)
+    <|> pure expr
+
+parseExprAccess :: Expr Ann -> Parser (Expr Ann)
+parseExprAccess exp = defer \_ -> do
+  acs <- try do
+    acsHd <- parseAccessor
+    acsTl <- many parseAccessor
+    pure $ NonEmptyArray.cons' acsHd acsTl
+  pure $ ExprAccess 
+    {pos: (exprAnn exp).pos ~ (accessorAnn $ NonEmptyArray.last acs).pos } 
+    exp
+    acs
+
+parseAccessor :: Parser (Accessor Ann)
+parseAccessor = defer \_ -> do
+  tok1 <- index
+  case tok1.it of 
+    TokIndex n -> pure $ AcsIndex {pos:tok1.at} n
+    t -> failwith (UnexpectedToken t) 
+
 parseExprAtom :: Parser (Expr Ann)
 parseExprAtom = defer \_ -> do
   parseConst
   <|> parseExprIdent
+  <|> parseExprTuple
   <|> parseParensExpr
 
+parseExprTuple :: Parser (Expr Ann)
+parseExprTuple = defer \_ -> do
+  {at:pos1} <- leftBrace
+  exprs <- delimBy comma parseExpr 
+  {at:pos2} <- rightBrace
+  pure $ ExprTuple {pos:pos1 ~ pos2} exprs 
+  
 parseParensExpr :: Parser (Expr Ann)
 parseParensExpr = defer \_ -> do 
   {at:pos1} <- leftParens
@@ -313,8 +378,8 @@ parsePatVar = defer \_ -> do
 
 parseType :: Parser (Type_ Ann)
 parseType = defer \_ -> do
-  typ <- parseTypeAtom
-  typs <- many (rightArrow *> parseTypeAtom)
+  typ <- parseType1
+  typs <- many (rightArrow *> parseType1)
   case NonEmptyArray.fromArray typs of 
     Nothing -> pure typ
     Just ts -> do
@@ -325,15 +390,30 @@ parseType = defer \_ -> do
           (NonEmptyArray.cons' typ init)
           last
 
+parseType1 :: Parser (Type_ Ann)
+parseType1 = defer \_ -> do
+  t1 <- parseTypeAtom
+  ts <- many (star *> parseTypeAtom)
+  case ts of
+    [] -> pure t1 
+    _ -> 
+      let 
+        last = unsafePartial (ArrayP.last ts) 
+      in 
+        pure $ TTup 
+          { pos: (typeAnn t1).pos ~ (typeAnn last).pos } 
+          (Array.cons t1 ts)
+
 parseTypeAtom :: Parser (Type_ Ann)
 parseTypeAtom = defer \_ -> do
-  parseTypeFree 
+  parseTypeFree
   <|> parseParensType 
 
 parseTypeFree :: Parser (Type_ Ann)
 parseTypeFree = defer \_ -> do
   name <- ident
   pure $ TFree {pos: name.at} name.it
+
 
 parseParensType :: Parser (Type_ Ann)
 parseParensType = defer \_ -> do

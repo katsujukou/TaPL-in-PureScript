@@ -12,6 +12,7 @@ import Data.Array.NonEmpty as NonEmptyArray
 import Data.Either (Either)
 import Data.List (List(..))
 import Data.Maybe (Maybe(..))
+import Data.Traversable (traverse)
 import Data.Tuple.Nested (type (/\), (/\))
 import Effect.Console (logShow)
 import Effect.Unsafe (unsafePerformEffect)
@@ -19,15 +20,13 @@ import TAPL.BoolNat.Syntax.Position ((~))
 import TAPL.STLCEx.Env (Occurrence, VarEnv(..))
 import TAPL.STLCEx.Env as Env
 import TAPL.STLCEx.Error (Error(..))
-import TAPL.STLCEx.Syntax.Types (Const(..), Expr(..), Pattern(..))
+import TAPL.STLCEx.Syntax.Types (Accessor(..), Const(..), Expr(..), Pattern(..))
 import TAPL.STLCEx.Syntax.Types as Syntax
 import TAPL.STLCEx.Types (Ann, Ident, Term(..), Type_(..), termAnn, typeAnn)
 
 -- This module defines well-formedness checking functionality
 -- After passing well-formedness checking, parsed terms (concrete syntax of source)
 -- are transformed to AST terms and types, ready to be type-checked and evaluated.
-
--- type Env = List Ident 
 
 type Check a = ReaderT Env.VarEnv (StateT Int (Except Error)) a
 
@@ -91,7 +90,7 @@ check = case _ of
         _ -> do 
           env <- ask
           case Env.searchVarEnv ident env of 
-            Just (i /\ o) -> do 
+            Just (i /\ _) -> do 
               checkExprApp (TmBound a i) (NonEmptyArray.toArray expArgs)
             _ -> throwError $ UnknownIdentifier ident
     | otherwise -> do 
@@ -99,9 +98,12 @@ check = case _ of
     checkExprApp tmAbs (NonEmptyArray.toArray expArgs)
   ExprAbs a args body -> checkExprAbs a (NonEmptyArray.toArray args) body
   ExprLet a binder e1 e2 -> checkExprLet a binder e1 e2 
+  ExprTuple a elems -> checkExprTuple a elems
+  ExprAccess _ exp path -> do
+    tm <- check exp 
+    checkExprAccess tm (NonEmptyArray.toArray path)
   _ -> throwError $ ExprIllFormed "not implemented"
   where
-  -- convertNat :: a /\ Term a /\ Int -> Check (Step (a /\ Term a /\ Int) (Term a))
   convertNat (ann /\ prev /\ n) 
     | n == 0 = pure $ Done prev 
     | n > 0 = pure $ Loop (ann /\ TmSucc ann prev /\ (n - 1))
@@ -130,7 +132,20 @@ check = case _ of
     tm2 <- withExtendEnv binder do
       check e2
     pure $ TmLetIn a tm1 tm2
+  
+  checkExprTuple a elems = do
+    tmElems <- traverse check elems
+    pure $ TmTuple a tmElems
 
+  checkExprAccess tm = Array.uncons >>> case _ of 
+    Nothing -> pure tm
+    Just { head:acs, tail:rest } -> 
+      case acs of 
+        AcsIndex a n -> do
+          let 
+            tm' = TmField {pos: (termAnn tm).pos ~ a.pos} tm n
+          checkExprAccess tm' rest
+    
   checkType = case _ of 
     Syntax.TFree a ident -> case ident of 
       "bool" -> pure $ TBool a
@@ -138,6 +153,7 @@ check = case _ of
       "unit" -> pure $ TUnit a
       _ -> throwError $ ExprIllFormed "Atomic types other than nat, bool, unit are not supported."
     Syntax.TFun a argTypes retType -> checkFuncType a (NonEmptyArray.toArray argTypes) retType
+    Syntax.TTup a typs -> TTuple a <$> traverse checkType typs
     Syntax.TParens _ t -> checkType t
     
   checkFuncType a argTypes retType = case Array.uncons argTypes of 

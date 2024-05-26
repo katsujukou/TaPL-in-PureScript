@@ -2,6 +2,8 @@ module TAPL.STLCEx.Eval.Value where
 
 import Prelude
 
+import Data.String as Str
+
 data Value 
   = VTrue 
   | VFalse 
@@ -9,6 +11,7 @@ data Value
   | VSucc Value
   | VAbs 
   | VUnit
+  | VTuple (Array Value)
 
 -- derive instance Generic Value _ 
 instance Show Value where
@@ -19,6 +22,7 @@ instance Show Value where
     VSucc nv -> "(VSucc " <> show nv <> ")"
     VAbs -> "(VAbs <fun>)"
     VUnit -> "()"
+    VTuple vs -> "(VTuple " <> (Str.joinWith ", " $ map show vs) <> ")"
 
 isNumeric :: Value -> Boolean
 isNumeric = case _ of 
