@@ -58,6 +58,9 @@ evalSmallStep = case _ of
     | otherwise -> do 
         t1' <- evalSmallStep t1
         pure $ TmApp a t1' t2 
+  TmLetIn a t1 t2 
+    | isValue t1 -> pure $ shift0 (-1) $ (subst 0 (shift0 1 t1) t2)
+    | otherwise -> TmLetIn a <$> evalSmallStep t1 <*> pure t2
   tm
     | isValue tm -> pure tm
     | otherwise -> throwError $ EvalStuck
@@ -71,7 +74,8 @@ subst i t0 = case _ of
   TmIf a t1 t2 t3 -> TmIf a (subst i t0 t1) (subst i t0 t2) (subst i t0 t3)
   TmIsZero a t -> TmIsZero a $ subst i t0 t 
   TmPred a t -> TmPred a $ subst i t0 t
-  TmAbs a typ t -> TmAbs a typ (subst (i + 1) (shift 1 0 t0) t)
+  TmAbs a typ t -> TmAbs a typ (subst (i + 1) (shift0 1 t0) t)
+  TmLetIn a t1 t2 -> TmLetIn a (subst i t0 t1) (subst (i + 1) (shift0 1 t0) t2)
   t2 -> t2 
 
 shift0 :: forall a. Int -> Term a -> Term a 
