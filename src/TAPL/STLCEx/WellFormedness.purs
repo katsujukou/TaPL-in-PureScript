@@ -24,7 +24,7 @@ import TAPL.STLCEx.Error (Error(..))
 import TAPL.STLCEx.Syntax.Types (Accessor(..), Const(..), Expr(..), Pattern(..))
 import TAPL.STLCEx.Syntax.Types as Syntax
 import TAPL.STLCEx.Syntax.Utils (isUppercase)
-import TAPL.STLCEx.Types (Ann, Ident, Prop(..), Term(..), Type_(..), termAnn, typeAnn)
+import TAPL.STLCEx.Types (Ann, Ident, Prop(..), Term(..), Type_(..), emptyAnn, termAnn, typeAnn)
 
 -- This module defines well-formedness checking functionality
 -- After passing well-formedness checking, parsed terms (concrete syntax of source)
@@ -105,6 +105,16 @@ check = case _ of
   ExprAccess _ exp path -> do
     tm <- check exp 
     checkExprAccess tm (NonEmptyArray.toArray path)
+  ExprAscription a exp typ -> do
+    -- Desugar `as` derived form into application
+    -- tm as typ == (fun (x:typ) -> x) tm
+    abs <- do
+      var <- freshVar
+      pure $ ExprAbs 
+        emptyAnn
+        (NonEmptyArray.singleton (Syntax.Binder emptyAnn (Syntax.PatVar emptyAnn var) (Just typ)))
+        (Syntax.ExprIdent emptyAnn var)
+    check (ExprApp a abs (NonEmptyArray.singleton exp))
   _ -> throwError $ ExprIllFormed "not implemented"
   where
   convertNat (ann /\ prev /\ n) 

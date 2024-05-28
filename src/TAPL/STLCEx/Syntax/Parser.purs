@@ -110,12 +110,12 @@ followedBy p1 p2 = try ((/\) <$> p1 <*> p2)
 
 delimBy :: forall a. Parser SourceToken -> Parser a -> Parser (Array a)
 delimBy dlm p = do
-  a <- optional p
-  case a of
+  x <- optional p
+  case x of
     Nothing -> pure []
-    Just a0 -> do 
-      as <- many (dlm `followedBy` p)
-      pure $ Array.cons a0 (map snd as) 
+    Just x0 -> do 
+      xs <- many (dlm `followedBy` p)
+      pure $ Array.cons x0 (map snd xs) 
 
 tokenSuchThat :: (Token -> Boolean) -> Parser SourceToken 
 tokenSuchThat f = Parser \s -> case runLexer tokenize s.lexerState of
@@ -182,6 +182,9 @@ rec = token (TokReserved KW_rec)
 and :: Parser SourceToken
 and = token (TokReserved KW_and)
 
+as :: Parser SourceToken 
+as = token (TokReserved KW_as)
+
 in_ :: Parser SourceToken
 in_ = token (TokReserved KW_in)
 
@@ -238,7 +241,14 @@ parensed p = do
 
 parseExpr :: Parser (Expr Ann)
 parseExpr = defer \_ -> do 
-  parseExprApp
+  exp <- parseExprApp
+  (do
+    _ /\ typ <- as `followedBy` parseType
+    pure $ ExprAscription 
+      {pos: (exprAnn exp).pos ~ (typeAnn typ).pos}
+      exp 
+      typ
+  ) <|> pure exp
 
 parseExprApp :: Parser (Expr Ann) 
 parseExprApp = defer \_ -> do

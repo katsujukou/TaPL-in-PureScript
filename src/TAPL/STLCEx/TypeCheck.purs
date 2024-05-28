@@ -2,7 +2,7 @@ module TAPL.STLCEx.TypeCheck where
 
 import Prelude
 
-import Control.Monad.Except (Except, runExcept, throwError)
+import Control.Monad.Except (Except, catchError, runExcept, throwError)
 import Control.Monad.Reader (ReaderT, ask, local, runReaderT)
 import Data.Array ((!!))
 import Data.Array as Array
@@ -62,6 +62,13 @@ infer = case _ of
     typ2 <- withExtendEnv typ1 (infer body)
     pure $ TFun unit (map (const unit) typ1) typ2
   TmUnit _ -> pure $ TUnit unit 
+  TmAscribed _ tm t2 -> (do 
+    let t2' = map (const unit) t2 
+    check tm t2' $> t2' 
+    ) `catchError` \err -> case err of 
+      TypeMismatch { pos, expect, found } -> throwError $ 
+        IllegalAscription { pos, infered: found, ascribedTo: expect }
+      _ -> throwError err
   TmLetIn _ tm1 tm2 -> do
     typ1 <- infer tm1
     withExtendEnv typ1 (infer tm2) 

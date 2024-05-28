@@ -13,6 +13,7 @@ data Error
   | ExprIllFormed String
   | RecordLabelIllFormed String
   | TypeMismatch { pos :: SourceRange, expect :: Type_ Unit, found :: Type_ Unit}
+  | IllegalAscription { pos :: SourceRange, infered :: Type_ Unit, ascribedTo :: Type_ Unit }
   | UnknownIdentifier Ident
   | BinderNotAnnotated { pos :: SourceRange } 
   | IllegalFieldAccess { pos :: SourceRange, typ :: Type_ Unit, idx :: Int }

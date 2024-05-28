@@ -79,6 +79,7 @@ printToken = case _ of
       KW_if -> "if"
       KW_else -> "else"
       KW_then -> "then"  
+      KW_as -> "as"
 
 data Keyword
   = KW_fun 
@@ -91,6 +92,7 @@ data Keyword
   | KW_if
   | KW_then 
   | KW_else
+  | KW_as
 
 derive instance Eq Keyword
 derive instance Generic Keyword _ 
@@ -158,6 +160,7 @@ data Expr a
   | ExprTuple a (Array (Expr a))
   | ExprRecord a (Array (Labeled (Expr a)))
   | ExprAccess a (Expr a) (NonEmptyArray (Accessor a))
+  | ExprAscription a (Expr a) (Type_ a)
 
 derive instance Functor Expr 
 derive instance Eq a => Eq (Expr a) 
@@ -222,7 +225,7 @@ exprAnn = case _ of
   ExprTuple a _ -> a
   ExprAccess a _ _ -> a
   ExprRecord a _ -> a 
-
+  ExprAscription a _ _ -> a
 patternAnn :: forall a. Pattern a -> a 
 patternAnn = case _ of 
   PatVar a _ -> a 

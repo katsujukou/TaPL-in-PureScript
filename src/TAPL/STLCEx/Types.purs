@@ -5,6 +5,7 @@ module TAPL.STLCEx.Types
   , Term(..)
   , Type_(..)
   , Var
+  , emptyAnn
   , module T
   , propKey
   , propValue
@@ -20,6 +21,7 @@ import Data.Show.Generic (genericShow)
 import Data.Traversable (class Foldable, class Traversable)
 import TAPL.STLC.Syntax.Position (SourceRange)
 import TAPL.STLC.Types (Ident) as T
+import TAPL.STLCEx.Syntax.Position (emptyRange)
 
 data Name
   = NFree T.Ident
@@ -98,7 +100,6 @@ data Term a
   | TmRecord a (Array (Prop (Term a)))
   | TmField a (Term a) Int
   | TmProperty a (Term a) String
-
 derive instance Functor Term 
 derive instance Generic (Term a) _
 derive instance Eq a => Eq (Term a) 
@@ -136,3 +137,6 @@ typeAnn = case _ of
   TUnit a -> a 
   TTuple a _ -> a
   TRecord a _ -> a 
+
+emptyAnn :: Ann 
+emptyAnn = { pos: emptyRange }

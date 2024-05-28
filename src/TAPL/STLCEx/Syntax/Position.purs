@@ -1,9 +1,12 @@
 module TAPL.STLCEx.Syntax.Position
-  ( module ReExport 
-  ) where
+  ( emptyPos
+  , emptyRange
+  , module ReExport
+  )
+  where
 
 import TAPL.STLC.Syntax.Position 
-  (SourcePhrase
+  ( SourcePhrase
   , SourcePos
   , SourceRange
   , advancePos
@@ -20,3 +23,9 @@ import TAPL.STLC.Syntax.Position
   , printRange
   ) 
   as ReExport
+
+emptyPos :: ReExport.SourcePos
+emptyPos = { ln: 0, col: 0 }
+
+emptyRange :: ReExport.SourceRange
+emptyRange = { start: emptyPos, end: emptyPos }

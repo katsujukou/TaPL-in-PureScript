@@ -215,4 +215,5 @@ parseKeyword = case _ of
   "if" -> Just KW_if
   "then" -> Just KW_then
   "else" -> Just KW_else
+  "as" -> Just KW_as
   _ -> Nothing
