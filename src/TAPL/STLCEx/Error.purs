@@ -19,6 +19,7 @@ data Error
   | IllegalFieldAccess { pos :: SourceRange, typ :: Type_ Unit, idx :: Int }
   | IllegalPropertyAccess { pos :: SourceRange, typ :: Type_ Unit, prop :: String }
   | IllegalApplication
+  | IllegalFix { pos :: SourceRange, typ :: Type_ Unit }
   | EvalStuck
 
 derive instance Generic Error _

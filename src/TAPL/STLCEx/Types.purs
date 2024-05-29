@@ -100,6 +100,7 @@ data Term a
   | TmRecord a (Array (Prop (Term a)))
   | TmField a (Term a) Int
   | TmProperty a (Term a) String
+  | TmFix a (Term a)
 derive instance Functor Term 
 derive instance Generic (Term a) _
 derive instance Eq a => Eq (Term a) 
@@ -128,7 +129,7 @@ termAnn = case _ of
   TmRecord a _ -> a
   TmField a _ _ -> a 
   TmProperty a _ _ -> a
-  
+  TmFix a _ -> a
 typeAnn :: forall a. Type_ a -> a 
 typeAnn = case _ of 
   TBool a -> a

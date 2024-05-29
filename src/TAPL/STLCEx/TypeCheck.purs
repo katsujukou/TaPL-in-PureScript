@@ -2,7 +2,7 @@ module TAPL.STLCEx.TypeCheck where
 
 import Prelude
 
-import Control.Monad.Except (Except, catchError, runExcept, throwError)
+import Control.Monad.Except (Except, runExcept, throwError)
 import Control.Monad.Reader (ReaderT, ask, local, runReaderT)
 import Data.Array ((!!))
 import Data.Array as Array
@@ -83,7 +83,12 @@ infer = case _ of
       TRecord _ typs 
         | Just (Prop _ typ') <- Array.find ((_ == prop) <<< propKey) typs -> pure typ'
       _ -> throwError $ IllegalPropertyAccess { prop, typ, pos: a.pos }
--- fun (x:nat) (y:bool) -> let f = fun (x:nat) -> pred x in if y then x else f x
+  TmFix a tmFn -> do
+    typ <- infer tmFn
+    case typ of 
+      TFun _ t1 t2 
+        | t1 == t2 -> pure t1
+      _ -> throwError $ IllegalFix { pos: a.pos, typ}
 
 check :: Term Ann -> Type_ Unit -> TCheck Unit
 check tm t2 = do

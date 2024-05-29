@@ -102,11 +102,16 @@ evalSmallStep = case _ of
         TmRecord _ flds 
           | Just (Prop _ t) <- Array.find ((_ == prop) <<< propKey) flds -> pure t
         _ -> throwError $ EvalStuck
+  tmfix@(TmFix a tmFn)
+    -- E-FIXBETA
+    | TmAbs _ _ t2 <- tmFn -> pure $ shift0 (-1) $ subst 0 (shift0 1 tmfix) t2
+    -- E-FIX
+    | otherwise -> TmFix a <$> evalSmallStep tmFn
   tm
     | isValue tm -> pure tm
     | otherwise -> throwError $ EvalStuck
 
-subst :: forall a. Var -> Term a -> Term a -> Term a
+subst :: forall a. Show a => Var -> Term a -> Term a -> Term a
 subst i t0 = case _ of
   t1@(TmBound _ j)
     | i == j -> t0 
@@ -114,6 +119,7 @@ subst i t0 = case _ of
   TmApp a t1 t2 -> TmApp a (subst i t0 t1) (subst i t0 t2) 
   TmIf a t1 t2 t3 -> TmIf a (subst i t0 t1) (subst i t0 t2) (subst i t0 t3)
   TmIsZero a t -> TmIsZero a $ subst i t0 t 
+  TmSucc a t -> TmSucc a (subst i t0 t)
   TmPred a t -> TmPred a $ subst i t0 t
   TmAbs a typ t -> TmAbs a typ (subst (i + 1) (shift0 1 t0) t)
   TmLetIn a t1 t2 -> TmLetIn a (subst i t0 t1) (subst (i + 1) (shift0 1 t0) t2)
@@ -121,7 +127,7 @@ subst i t0 = case _ of
   TmRecord a flds -> TmRecord a (map (subst i t0) <$> flds)
   TmField a t n -> TmField a (subst i t0 t) n
   TmProperty a t p -> TmProperty a (subst i t0 t) p
-
+  TmFix a t -> TmFix a (subst i t0 t)
   t2 -> t2 
 
 shift0 :: forall a. Int -> Term a -> Term a 
@@ -136,11 +142,13 @@ shift d c = case _ of
   TmAbs a typ body -> TmAbs a typ (shift d (c + 1) body)
   TmIf a t1 t2 t3 -> TmIf a (shift d c t1) (shift d c t2) (shift d c t3)
   TmPred a t -> TmPred a (shift d c t)
+  TmSucc a t -> TmSucc a (shift d c t)
   TmIsZero a t -> TmIsZero a (shift d c t)
   TmTuple a ts -> TmTuple a (shift d c <$> ts)
   TmRecord a flds -> TmRecord a (map (shift d c) <$> flds )
   TmField a t n -> TmField a (shift d c t) n
   TmProperty a t p -> TmProperty a (shift d c t) p
+  TmFix a t -> TmFix a (shift d c t)
   t -> t
 
 extractValue :: forall a. Term a -> Maybe Value 

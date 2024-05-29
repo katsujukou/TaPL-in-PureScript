@@ -73,6 +73,7 @@ check = case _ of
   ExprIdent a ident -> case ident of 
     "isZero" -> throwError $ ExprIllFormed "isZero in unexpected position"
     "pred" -> throwError $ ExprIllFormed "pred in unexpected position"
+    "fix" -> throwError $ ExprIllFormed "fix in unexpected position"
     _ -> do 
       env <- ask
       case Env.searchVarEnv ident env of 
@@ -83,12 +84,18 @@ check = case _ of
   ExprApp _ expAbs expArgs
     | [arg] <- NonEmptyArray.toArray expArgs
     , ExprIdent a ident <- expAbs -> case ident of 
+        "succ" -> do 
+          tmArg <- check arg 
+          pure $ TmSucc { pos: a.pos ~ (termAnn tmArg).pos } tmArg
         "pred" -> do
           tmArg <- check arg
           pure $ TmPred { pos: a.pos ~ (termAnn tmArg).pos } tmArg 
         "isZero" -> do
           tmArg <- check arg
           pure $ TmIsZero { pos: a.pos ~ (termAnn tmArg).pos } tmArg 
+        "fix" -> do
+          tmArg <- check arg 
+          pure $ TmFix { pos: a.pos ~ (termAnn tmArg).pos } tmArg 
         _ -> do 
           env <- ask
           case Env.searchVarEnv ident env of 
