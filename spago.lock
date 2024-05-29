@@ -4,6 +4,7 @@ workspace:
       path: bin
       dependencies:
         - aff-promise
+        - avar
         - js-promise
         - optparse
         - run
@@ -16,6 +17,7 @@ workspace:
         - aff-promise
         - arraybuffer-types
         - arrays
+        - avar
         - bifunctors
         - catenable-lists
         - console
@@ -86,6 +88,7 @@ workspace:
         - ordered-collections
         - prelude
         - strings
+        - stringutils
         - transformers
       test_dependencies: []
       build_plan:
@@ -123,6 +126,7 @@ workspace:
         - safe-coerce
         - st
         - strings
+        - stringutils
         - tailrec
         - transformers
         - tuples
@@ -677,6 +681,17 @@ packages:
       - tuples
       - unfoldable
       - unsafe-coerce
+  avar:
+    type: registry
+    version: 5.0.0
+    integrity: sha256-e7hf0x4hEpcygXP0LtvfvAQ49Bbj2aWtZT3gqM///0A=
+    dependencies:
+      - aff
+      - effect
+      - either
+      - exceptions
+      - functions
+      - maybe
   bifunctors:
     type: registry
     version: 6.0.0

@@ -6,6 +6,7 @@ package:
     - ordered-collections
     - prelude
     - strings
+    - stringutils
     - transformers
   test:
     main: Test.Main
