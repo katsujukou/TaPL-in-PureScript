@@ -2,6 +2,7 @@ package:
   name: "cli"
   dependencies:
     - aff-promise
+    - avar
     - js-promise
     - optparse
     - run
