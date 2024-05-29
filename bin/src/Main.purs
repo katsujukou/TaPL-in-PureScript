@@ -15,7 +15,6 @@ import Effect.Aff (Aff, launchAff_)
 import Effect.Class (liftEffect)
 import Effect.Class.Console (log)
 import Node.Process as Process
-import BoolNat.Syntax.WellFormedness as WellFormedness
 import TAPL.REPL.Node.Console as Node
 import TAPL.REPL.Node.ReadLine as RL
 import TAPL.BoolNat.Error (Error(..))
@@ -25,6 +24,7 @@ import TAPL.BoolNat.Eval.Value (Value)
 import TAPL.BoolNat.PrettyPrint as PrettyPrint
 import TAPL.BoolNat.Syntax.Parser as Parser
 import TAPL.BoolNat.Syntax.Types (Ann, Expr)
+import TAPL.BoolNat.Syntax.WellFormedness as WellFormedness
 import TAPL.BoolNat.TypeCheck as TypeCheck
 import TAPL.BoolNat.Types (Type_)
 
@@ -105,4 +105,3 @@ main = launchAff_ do
     log "\x1b[31m"
     log $ Error.prettyPrintError src e 
     log "\x1b[0m"
-
