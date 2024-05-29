@@ -66,7 +66,7 @@ wrappe in `{|` and `|}`.
 
 e.g. This is `Maybe Boolean` type in PureScript:
 ```
-{| nothing: unit, just:nat |}
+{| nothing: unit, just:bool |}
 ```
 
 Variant value construction:
