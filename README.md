@@ -1,5 +1,5 @@
 # TAPL in PureScript
-The PureScript implementation for the *Types and Programming Language* by B. Pierce
+The PureScript implementation for the *Types and Programming Language* by Benjamin C. Pierce
 
 ## Done
   - *Chapter 8: Typed Artihmetic Expression* (`TAPL.BoolNat.*`)
