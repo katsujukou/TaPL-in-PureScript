@@ -284,8 +284,28 @@ parseExprAbs = defer \_ -> do
 parseExpr2 :: Parser (Expr Ann)
 parseExpr2 = defer \_ -> do 
   parseExprIf
+    <|> parseExprLetrec
     <|> parseExprLet
     <|> parseExpr3
+
+parseExprLetrec :: Parser (Expr Ann)
+parseExprLetrec = defer \_ -> do
+  {at:pos1}/\_ <- let_ `followedBy` rec
+  b <- parseLetBinder
+  bs <- many (and *> parseLetBinder)
+  _ <- in_
+  body <- parseExpr
+  pure $ ExprLetRec 
+    {pos:pos1 ~ (exprAnn body).pos}
+    (NonEmptyArray.cons' b bs) 
+    body
+
+parseLetBinder :: Parser { binder :: Binder Ann, expr :: Expr Ann }
+parseLetBinder = defer \_ -> do
+  binder <- parseBinder
+  _ <- equal
+  expr <- parseExpr
+  pure { binder, expr }
 
 parseExprLet :: Parser (Expr Ann)
 parseExprLet = defer \_ -> do

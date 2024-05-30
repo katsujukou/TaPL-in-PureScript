@@ -15,7 +15,7 @@ The PureScript implementation for the *Types and Programming Language* by B. Pie
      - [ ] Variant (ADT)      ... almost done
      - [ ] Pattern Matching   ... WIP
      - [x] General Recursions
-     - [ ] `let rec ... and` syntax
+     - [x] `let rec ... and` syntax
      - [ ] Lists
 
 ## Not Yet
@@ -34,8 +34,17 @@ type ::=                                ; types
          bool                           ; boolean
          nat                            ; natural numbers
          unit                           ; unit
+         type -> type                   ; function
          {  l1: t1, l2: t2, ... }       ; record type
          {| l1: t1, l2: t2, ... |}      ; variant type
+```
+
+### Function 
+The argument type annotation is mandatory
+```
+> fun (n:nat) -> isZero n 
+< if = <fun>
+     : nat -> bool
 ```
 
 ### Tuple & Record
@@ -75,18 +84,63 @@ let nat_op = {| some = 42 |} as {| none:unit, some:nat |}
 ```
 Note that you cannot drop type ascription.
 
-### Recursive function
-Use `fix` primitive:
+### Recursive functions
+Use `let rec` syntax:
 ```
-> let 
-  plus = fix (
-    fun (f: nat -> nat -> nat) (m:nat) (n:nat) ->
+> let rec plus 
+  : (nat -> nat) 
+  = fun (m:nat) (n:nat) ->
       if isZero m then n 
       else succ (f (pred m) n)
-  )
-in 
-  plus 3 2
+  in plus 3 2
 
 < it = 5
      : nat
+```
+Mutually recursive functions can be defined with
+`let rec...and...` syntax.
+```
+> let rec even 
+    : nat -> bool 
+    = fun (n:nat) ->
+        if isZero n then true
+        else odd (pred n)
+  and odd
+    : nat -> bool
+    = fun (n:nat) ->
+        if isZero n then false 
+        else even (pred n)
+  in 
+    even 5
+
+< it = false 
+     : bool 
+```
+
+Actually, The `let rec` is a syntax sugar and 
+desugared into the form with `fix` primitive combinator during well-formedness checking:
+```
+let plus: nat -> nat -> nat = fix 
+  (fun (f:nat -> nat -> nat) (m:nat) (n:nat) ->
+     if isZero m then n 
+     else succ (f (pred m) n)
+  )
+in plus 3 2
+```
+
+The desugared version of mutually recursive functions is a bit complicated.
+```
+let evenodd: { even: nat -> bool, odd: nat -> bool } = fix 
+  (fun (eo:{ even: nat -> bool, odd: nat -> bool }) ->
+    { even = fun (n:nat) -> 
+        if isZero n then true 
+        else eo#odd (pred n)
+    , odd = fun (n:nat) ->
+        if isZero n then false 
+        else eo#even (pred n)
+    }
+  ) in 
+let even : nat -> bool = evenodd#even in 
+let odd : nat -> bool = evenodd#odd in 
+even 5
 ```

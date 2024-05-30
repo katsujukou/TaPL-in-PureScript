@@ -125,7 +125,16 @@ derive instance Functor Labeled
 derive instance Eq a => Eq (Labeled a)
 derive instance Generic (Labeled a) _ 
 instance Show a => Show (Labeled a) where
-  show it = genericShow it 
+  show it = genericShow it
+
+labeledLabel :: forall a. Labeled a -> Label 
+labeledLabel (Labeled lbl _) = lbl
+
+labeledValue :: forall a. Labeled a -> a 
+labeledValue (Labeled lbl a) = a
+
+unLabel :: Label -> String 
+unLabel (Label lbl) = lbl
 
 data Type_ a
   = TFree a Ident
