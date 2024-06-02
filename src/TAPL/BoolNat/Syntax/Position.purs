@@ -23,8 +23,9 @@ span = { start:_, end: _ }
 
 infix 5 span as ..
 
+-- Fixme: if rng1 subsumes rng2 (or vice versa) this function does not work correctly.
 range :: SourceRange -> SourceRange -> SourceRange 
-range { start } { end } = start..end
+range rng1@{ start } rng2@{ end } = start..end
 
 infix 5 range as ~
 
