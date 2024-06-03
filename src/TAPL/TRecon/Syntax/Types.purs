@@ -4,9 +4,9 @@ import Prelude
 
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Generic.Rep (class Generic)
-import Data.Maybe (Maybe)
+import Data.Maybe (Maybe(..))
 import Data.Show.Generic (genericShow)
-import TAPL.TRecon.Syntax.Position (SourcePhrase, SourceRange)
+import TAPL.TRecon.Syntax.Position (SourcePhrase, SourceRange, emptyRange)
 import TAPL.TRecon.Types (Ident)
 
 -- This module declars definitions of parsed expressions (i.e. concrete syntax)  
@@ -20,8 +20,10 @@ data Token
   | TokRightArrow
   | TokReserved Keyword
   | TokIdent Ident
+  | TokOperator String
   | TokBool Boolean
   | TokNat Int
+  | TokUnit
   | TokEOF
 
 derive instance Eq Token 
@@ -40,8 +42,10 @@ printToken = case _ of
   TokRightArrow -> "->"
   TokReserved kw -> printKeyword kw
   TokIdent ident -> ident
+  TokOperator op -> op
   TokBool b -> show b
   TokNat n -> show n 
+  TokUnit -> "()"
   TokEOF -> ""
   where
     printKeyword = case _ of 
@@ -59,6 +63,7 @@ data Keyword
   | KW_else
   | KW_let 
   | KW_in
+
 derive instance Eq Keyword
 derive instance Generic Keyword _ 
 instance Show Keyword where 
@@ -70,6 +75,7 @@ data Const
   = CstTrue 
   | CstFalse
   | CstNat Int
+  | CstUnit
 
 derive instance Eq Const 
 derive instance Generic Const _ 
@@ -142,6 +148,9 @@ instance Show a => Show (Pattern a) where
 type Ann =
   { pos :: SourceRange }
 
+emptyAnn :: Ann 
+emptyAnn = { pos: emptyRange }
+
 exprAnn :: forall a. Expr a -> a 
 exprAnn = case _ of
   ExprConst a _ -> a
@@ -150,9 +159,14 @@ exprAnn = case _ of
   ExprIdent a _ -> a
   ExprAbs a _ _ -> a
   ExprApp a _ _ -> a
-  ExprLet a _ _ _ -> a
+  ExprLet a _ _ _ -> a 
 
 patternAnn :: forall a. Pattern a -> a 
 patternAnn = case _ of 
   PatVar a _ -> a 
   PatWildcard a -> a 
+
+patternVar :: forall a. Pattern a -> Maybe Ident
+patternVar = case _ of 
+  PatVar _ var -> Just var
+  _ -> Nothing

@@ -25,7 +25,7 @@ import TAPL.STLC.Syntax.Position
   as ReExport
 
 emptyPos :: ReExport.SourcePos
-emptyPos = { ln: 1, col: 1 }
+emptyPos = { ln: 0, col: 0 }
 
 emptyRange :: ReExport.SourceRange
 emptyRange = { start: emptyPos, end: emptyPos }

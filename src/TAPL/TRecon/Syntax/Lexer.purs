@@ -14,13 +14,13 @@ import Data.String.Regex.Flags (unicode)
 import Data.String.Regex.Unsafe (unsafeRegex)
 import Data.Tuple.Nested (type (/\), (/\))
 import Partial.Unsafe (unsafeCrashWith)
-import TAPL.TRecon.Syntax.Error (ParseErrorType(..))
-import TAPL.TRecon.Syntax.Position (SourcePhrase, SourcePos, advancePos, charDelta, mapPhrase, stringDelta, (..), (@@))
+import TAPL.TRecon.Syntax.Error (ParseError(..))
+import TAPL.TRecon.Syntax.Position (SourcePhrase, SourcePos, advancePos, charDelta, mapPhrase, stringDelta, (..), (@@), (~))
 import TAPL.TRecon.Syntax.Types (Keyword(..), SourceToken, Token(..))
 
 type LexerState = { src :: String, pos :: SourcePos }
 
-type LexResult a = Either ParseErrorType a  
+type LexResult a = Either ParseError a  
 
 newtype Lexer a = Lexer (LexerState -> LexResult a /\ LexerState)
 
@@ -55,7 +55,7 @@ instance Alt Lexer where
 runLexer :: forall a. Lexer a -> LexerState -> LexResult a /\ LexerState 
 runLexer (Lexer k) s0 = k s0
 
-failwith :: forall a. ParseErrorType -> Lexer a
+failwith :: forall a. ParseError -> Lexer a
 failwith err = Lexer \s0 -> Left err /\ s0 
 
 getCurrentState :: Lexer LexerState
@@ -75,6 +75,10 @@ tokenize = do
   <|> operator
   <|> eof
   )
+--   (punctuation 
+--   <|> operator 
+--   <|> ident 
+--   <|> eof)
 
 whitespace :: Lexer Unit 
 whitespace = void $ 
@@ -95,8 +99,13 @@ punctuation = do
   s0 <- getCurrentState
   ch <- anychar
   case ch.it of
-    '(' -> pure $ mapPhrase (const TokLeftParens) ch
     ')' -> pure $ mapPhrase (const TokRightParens) ch
+    '(' -> do
+      s1 <- getCurrentState 
+      nextCh <- anychar
+      case nextCh.it of 
+        ')' -> pure (TokUnit @@ (ch.at ~ nextCh.at))
+        _ -> setState s1 $> mapPhrase (const TokLeftParens) ch
     _ -> setState s0 *> failwith (LexUnexpected)
 
 operator :: Lexer SourceToken
@@ -106,7 +115,8 @@ operator = do
     "=" -> pure $ matched {it = TokEqual } 
     ":" -> pure $ matched {it = TokColon }
     "->" -> pure $ matched {it = TokRightArrow}
-    _ -> failwith $ LexUnexpected
+    op -> pure $ matched {it = TokOperator op}
+
   where
     operatorRegex = """[!#$%&=\-\^~|\\@+*:?/<>]+"""
 nat :: Lexer SourceToken
@@ -128,10 +138,11 @@ nat = do
   
 ident :: Lexer SourceToken 
 ident = do
-  matched <- regex """[a-zA-Z0-9][a-zA-Z0-9'_]*"""
+  matched <- regex """[a-zA-Z0-9_][a-zA-Z0-9'_]*"""
   case parseKeyword matched.it of 
     Just kw -> pure $ matched {it = TokReserved kw}
     _ -> case matched.it of 
+      "_" -> pure $ mapPhrase (const TokUnderscore) matched
       "true" -> pure $ mapPhrase (const (TokBool true)) matched 
       "false" -> pure $ mapPhrase (const (TokBool false)) matched 
       _ -> pure $ mapPhrase TokIdent matched
@@ -186,6 +197,6 @@ parseKeyword = case _ of
   "if" -> Just KW_if
   "then" -> Just KW_then
   "else" -> Just KW_else
-  "let" -> Just KW_let
+  "let" -> Just KW_let 
   "in" -> Just KW_in
   _ -> Nothing
